@@ -1,0 +1,55 @@
+[package]
+edition = "2024"
+name = "embassy-st7789v-plot"
+version = "0.1.0"
+authors = ["Jorge Andre Castro <georgeandrec@gmail.com>"]
+build = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+description = "Moteur de tracé de graphiques cartésiens (X, Y) adaptatifs et configurables pour écrans ST7789V,ring buffer, axes statiques, grille, zéro allocation"
+documentation = "https://docs.rs/embassy-st7789v-plot"
+readme = "README.md"
+keywords = [
+    "embassy",
+    "st7789v",
+    "plot",
+    "oscilloscope",
+    "no-std",
+]
+categories = [
+    "embedded",
+    "no-std",
+    "hardware-support",
+    "visualization",
+]
+license = "GPL-2.0-or-later"
+repository = "https://github.com/jorgeandrecastro/embassy-st7789v"
+
+[lib]
+name = "embassy_st7789v_plot"
+path = "src/lib.rs"
+
+[dependencies.embassy-st7789v]
+version = "0.1"
+
+[dependencies.embassy-st7789v-graphics]
+version = "0.1"
+
+[dependencies.embedded-trig-f32]
+version = "0.1"
+
+[dependencies.embedded-hal]
+version = "1.0"
+
+[dependencies.embedded-hal-async]
+version = "1.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
