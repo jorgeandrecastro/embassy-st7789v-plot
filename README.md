@@ -269,4 +269,3 @@ GPL-2.0-or-later
 - [`embedded-hal`](https://crates.io/crates/embedded-hal) — Traits HAL
 - [`embedded-hal-async`](https://crates.io/crates/embedded-hal-async) — Traits async HAL
 
-

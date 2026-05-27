@@ -190,6 +190,34 @@ where
     }
 }
 
+/// Trace une ligne entre deux points en utilisant l'algorithme de Bresenham.
+///
+/// Cette fonction utilise l'algorithme de Bresenham pour tracer une ligne
+/// entre les points (x0, y0) et (x1, y1). Elle gère correctement les lignes
+/// en dehors de l'écran via la vérification de limites dans [`Graphics::pixel`].
+///
+/// # Arguments
+///
+/// * `gfx` - Contexte graphique
+/// * `x0` - Coordonnée X du point de départ
+/// * `y0` - Coordonnée Y du point de départ
+/// * `x1` - Coordonnée X du point d'arrivée
+/// * `y1` - Coordonnée Y du point d'arrivée
+/// * `color` - Couleur de la ligne
+///
+/// # Exemple
+///
+/// ```no_run
+/// # use embassy_st7789v::{Color, St7789v};
+/// # use embedded_hal::digital::OutputPin;
+/// # use embedded_hal_async::spi::SpiDevice;
+/// # async fn example<SPI, DC, RST>(display: &mut St7789v<SPI, DC, RST>) where SPI: SpiDevice, DC: OutputPin, RST: OutputPin {
+/// use embassy_st7789v_plot::{Graphics, line};
+///
+/// let mut gfx = Graphics::new(display);
+/// line(&mut gfx, 10, 10, 100, 50, Color::BLUE).await;
+/// # }
+/// ```
 pub async fn line<SPI, DC, RST>(
     gfx: &mut Graphics<'_, SPI, DC, RST>,
     mut x0: i32,
@@ -202,34 +230,6 @@ pub async fn line<SPI, DC, RST>(
     DC: OutputPin,
     RST: OutputPin,
 {
-    //! Trace une ligne entre deux points en utilisant l'algorithme de Bresenham.
-    //!
-    //! Cette fonction utilise l'algorithme de Bresenham pour tracer une ligne
-    //! entre les points (x0, y0) et (x1, y1). Elle gère correctement les lignes
-    //! en dehors de l'écran via la vérification de limites dans [`Graphics::pixel`].
-    //!
-    //! # Arguments
-    //!
-    //! * `gfx` - Contexte graphique
-    //! * `x0` - Coordonnée X du point de départ
-    //! * `y0` - Coordonnée Y du point de départ
-    //! * `x1` - Coordonnée X du point d'arrivée
-    //! * `y1` - Coordonnée Y du point d'arrivée
-    //! * `color` - Couleur de la ligne
-    //!
-    //! # Exemple
-    //!
-    //! ```no_run
-    //! # use embassy_st7789v::{Color, St7789v};
-    //! # use embedded_hal::digital::OutputPin;
-    //! # use embedded_hal_async::spi::SpiDevice;
-    //! # async fn example<SPI, DC, RST>(display: &mut St7789v<SPI, DC, RST>) where SPI: SpiDevice, DC: OutputPin, RST: OutputPin {
-    //! use embassy_st7789v_plot::{Graphics, line};
-    //!
-    //! let mut gfx = Graphics::new(display);
-    //! line(&mut gfx, 10, 10, 100, 50, Color::BLUE).await;
-    //! # }
-    //! ```
     let dx = (x1 - x0).abs();
     let sx = if x0 < x1 { 1 } else { -1 };
     let dy = -(y1 - y0).abs();
