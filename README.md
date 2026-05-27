@@ -4,28 +4,40 @@ Moteur de tracé de graphiques cartésiens (X, Y) adaptatifs et configurables po
 
 ## 🎯 Caractéristiques
 
-- ✅ **`#![no_std]` + `#![forbid(unsafe_code)]`** — Entièrement sûr et embarqué
-- ✅ **Zéro allocation heap** — Buffers statiques uniquement (ring buffer fixe)
-- ✅ **Ring buffer circulaire** — Jusqu'à 240 points (limite physique écran 240px)
-- ✅ **Axes configurables** — Graduations statiques avec pas personnalisable
-- ✅ **Grille adaptative** — Grille horizontale/verticale avec labels
-- ✅ **API asynchrone** — Intégration complète Embassy pour non-bloquant
-- ✅ **Protection des bordures** — Labels de graduations restent toujours visibles
-- ✅ **Rendu ligne Bresenham** — Courbes lisses entre points de données
+- ✅ **`#![no_std]` + `#![forbid(unsafe_code)]`** : Entièrement sûr et embarqué
+- ✅ **Zéro allocation heap** : Buffers statiques uniquement (ring buffer fixe)
+- ✅ **Ring buffer circulaire** : Jusqu'à 240 points (limite physique écran 240px)
+- ✅ **Axes configurables** : Graduations statiques avec pas personnalisable
+- ✅ **Grille adaptative** : Grille horizontale/verticale avec labels
+- ✅ **API asynchrone** : Intégration complète Embassy pour non-bloquant
+- ✅ **Protection des bordures** : Labels de graduations restent toujours visibles
+- ✅ **Rendu ligne Bresenham** : Courbes lisses entre points de données
+
+
+-----
+
+
+## Changelog
+
+Voir [CHANGELOG.md](./CHANGELOG.md) pour l'historique des versions et modifications.
+
+----
 
 ## 📦 Installation
 
 ```toml
 [dependencies]
-embassy-st7789v-plot = "0.1"
+embassy-st7789v-plot = "0.1.1"
 embassy-st7789v = "0.1"
 embedded-hal = "1.0"
 embedded-hal-async = "1.0"
 ```
 
+----
+
 ## 🚀 Utilisation rapide
 
-### Exemple basique — Single plot
+### Exemple basique : Single plot
 
 ```rust
 use embassy_st7789v::{Color, St7789v, NoPin};
@@ -123,6 +135,9 @@ assert!(!invalid.is_valid());  // end <= start
 margin_left              margin_right
 ```
 
+----
+
+
 ## 📊 Structure de données
 
 ### Ring buffer (historique circulaire)
@@ -147,6 +162,9 @@ data[4] = valeur 2e
 4. **Labels des axes** → Texte des titres
 5. **Bordures** → Cadre (axis_color)
 6. **Courbe** → Lignes Bresenham reliant les points
+
+----
+
 
 ## 🔧 Cas d'usage
 
@@ -191,6 +209,7 @@ let config = PlotConfig {
 };
 let mut pressure_chart: LineChart<100> = LineChart::new(config);
 ```
+----
 
 ## 🛠️ API complète
 
@@ -226,12 +245,17 @@ let mut pressure_chart: LineChart<100> = LineChart::new(config);
 |----------|-------------|
 | `line(gfx, x0, y0, x1, y1, color)` | Trace ligne Bresenham (async) |
 
+
+----
+
 ## ⚠️ Limitations
 
 - **Nombre de points** : Maximum 240 (largeur écran ST7789V)
 - **Précision** : Axes en virgule flottante, pixel en entier
 - **Pas adaptatif** : Les graduations sont statiques (pas de zoom automatique)
 - **Labels** : Seulement texte ASCII sur Y-axis, valeurs flottantes sur graduations
+
+----
 
 ## 📝 Exemple complet avec boucle acquisition
 
@@ -257,11 +281,15 @@ async fn main(_spawner: Spawner) {
 }
 ```
 
-## 📜 License
+---
+
+## �📜 License
 
 GPL-2.0-or-later 
 
 **Copyright (C) 2026 Jorge Andre Castro**
+
+----
 
 ## 🔗 Dépendances
 

@@ -813,10 +813,11 @@ impl<const N: usize> LineChart<N> {
         ).await;
 
         // Label X (dans la marge bas, 2 lignes plus bas)
-        let label_x_x = self.plot_x + (self.plot_w / 2) - ((y_axis.label.len() as i32 * 6) / 2);
+        let label_x_x = self.plot_x + (self.plot_w / 2) - ((x_axis.label.len() as i32 * 6) / 2);
         let _ = gfx.display.draw_str(
             label_x_x.max(self.config.x + 2) as u16,
-            (self.config.y + self.config.height + 4) as u16,
+            //Le label X est placé dans la marge inférieure, avec un padding de 4 pixels pour éviter la coupure
+            (self.config.y + self.config.height + 4).min(SCREEN_H as i32 - 8) as u16, 
             x_axis.label,
             self.config.label_color,
             self.config.bg_color,

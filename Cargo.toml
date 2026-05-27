@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "embassy-st7789v-plot"
-version = "0.2.0"
+version = "0.1.1"
 authors = ["Jorge Andre Castro <georgeandrec@gmail.com>"]
 build = false
 autolib = false
