@@ -111,19 +111,6 @@ where
     /// # Arguments
     ///
     /// * `display` - Référence mutable vers l'affichage ST7789V
-    ///
-    /// # Exemple
-    ///
-    /// ```no_run
-    /// # use embassy_st7789v::{St7789v, NoPin};
-    /// # use embedded_hal::digital::OutputPin;
-    /// # use embedded_hal_async::spi::SpiDevice;
-    /// # async fn example<SPI, DC>(display: &mut St7789v<SPI, DC, NoPin>) where SPI: SpiDevice, DC: OutputPin {
-    /// use embassy_st7789v_plot::Graphics;
-    ///
-    /// let mut gfx = Graphics::new_no_rst(display);
-    /// # }
-    /// ```
     #[inline]
     pub fn new_no_rst(display: &'a mut St7789v<SPI, DC, NoPin>) -> Self {
         Self { display }
@@ -141,19 +128,6 @@ where
     /// # Arguments
     ///
     /// * `display` - Référence mutable vers l'affichage ST7789V
-    ///
-    /// # Exemple
-    ///
-    /// ```no_run
-    /// # use embassy_st7789v::St7789v;
-    /// # use embedded_hal::digital::OutputPin;
-    /// # use embedded_hal_async::spi::SpiDevice;
-    /// # async fn example<SPI, DC, RST>(display: &mut St7789v<SPI, DC, RST>) where SPI: SpiDevice, DC: OutputPin, RST: OutputPin {
-    /// use embassy_st7789v_plot::Graphics;
-    ///
-    /// let mut gfx = Graphics::new(display);
-    /// # }
-    /// ```
     #[inline]
     pub fn new(display: &'a mut St7789v<SPI, DC, RST>) -> Self {
         Self { display }
@@ -168,20 +142,7 @@ where
     /// * `x` - Coordonnée X (peut être négative ou hors écran)
     /// * `y` - Coordonnée Y (peut être négative ou hors écran)
     /// * `color` - Couleur du pixel
-    ///
-    /// # Exemple
-    ///
-    /// ```no_run
-    /// # use embassy_st7789v::{Color, St7789v};
-    /// # use embedded_hal::digital::OutputPin;
-    /// # use embedded_hal_async::spi::SpiDevice;
-    /// # async fn example<SPI, DC, RST>(display: &mut St7789v<SPI, DC, RST>) where SPI: SpiDevice, DC: OutputPin, RST: OutputPin {
-    /// use embassy_st7789v_plot::Graphics;
-    ///
-    /// let mut gfx = Graphics::new(display);
-    /// gfx.pixel(100, 150, Color::GREEN).await;
-    /// # }
-    /// ```
+ 
     #[inline(always)]
     pub async fn pixel(&mut self, x: i32, y: i32, color: Color) {
         if x >= 0 && y >= 0 && x < SCREEN_W as i32 && y < SCREEN_H as i32 {
@@ -204,20 +165,6 @@ where
 /// * `x1` - Coordonnée X du point d'arrivée
 /// * `y1` - Coordonnée Y du point d'arrivée
 /// * `color` - Couleur de la ligne
-///
-/// # Exemple
-///
-/// ```no_run
-/// # use embassy_st7789v::{Color, St7789v};
-/// # use embedded_hal::digital::OutputPin;
-/// # use embedded_hal_async::spi::SpiDevice;
-/// # async fn example<SPI, DC, RST>(display: &mut St7789v<SPI, DC, RST>) where SPI: SpiDevice, DC: OutputPin, RST: OutputPin {
-/// use embassy_st7789v_plot::{Graphics, line};
-///
-/// let mut gfx = Graphics::new(display);
-/// line(&mut gfx, 10, 10, 100, 50, Color::BLUE).await;
-/// # }
-/// ```
 pub async fn line<SPI, DC, RST>(
     gfx: &mut Graphics<'_, SPI, DC, RST>,
     mut x0: i32,
@@ -268,21 +215,6 @@ pub async fn line<SPI, DC, RST>(
 /// * `end` - Valeur maximale de l'axe (ex: 10.0)
 /// * `step` - Espacement régulier entre graduations (ex: 1.0)
 /// * `label` - Label texte affiché le long de l'axe (ex: b"Temp (C)")
-///
-/// # Exemple
-///
-/// ```
-/// use embassy_st7789v_plot::AxisConfig;
-///
-/// // Axe des temps de 0 à 60 secondes avec graduations tous les 10s
-/// let time_axis = AxisConfig::new(0.0, 60.0, 10.0, b"Time (s)");
-/// assert!(time_axis.is_valid());
-/// assert_eq!(time_axis.tick_count(), 7); // 0, 10, 20, 30, 40, 50, 60
-///
-/// // Axe de température de -10 à 50°C avec graduations tous les 10°C
-/// let temp_axis = AxisConfig::new(-10.0, 50.0, 10.0, b"Temp (C)");
-/// assert_eq!(temp_axis.tick_count(), 7);
-/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct AxisConfig {
     pub start: f32,
@@ -315,17 +247,7 @@ impl AxisConfig {
     /// - `step` > 0.0
     /// - `end` > `start`
     ///
-    /// # Exemple
-    ///
-    /// ```
-    /// use embassy_st7789v_plot::AxisConfig;
-    ///
-    /// let valid = AxisConfig::new(0.0, 10.0, 1.0, b"X");
-    /// assert!(valid.is_valid());
-    ///
-    /// let invalid = AxisConfig::new(10.0, 0.0, 1.0, b"X");
-    /// assert!(!invalid.is_valid());
-    /// ```
+
     pub fn is_valid(&self) -> bool {
         self.step > 0.0 && self.end > self.start
     }
@@ -337,15 +259,7 @@ impl AxisConfig {
     /// # Retour
     ///
     /// Nombre de ticks incluant les extrémités, ou 0 si la configuration est invalide.
-    ///
-    /// # Exemple
-    ///
-    /// ```
-    /// use embassy_st7789v_plot::AxisConfig;
-    ///
-    /// let axis = AxisConfig::new(0.0, 10.0, 2.0, b"X");
-    /// assert_eq!(axis.tick_count(), 6); // 0, 2, 4, 6, 8, 10
-    /// ```
+
     pub fn tick_count(&self) -> usize {
         if !self.is_valid() {
             return 0;
@@ -371,35 +285,7 @@ impl AxisConfig {
 /// * `margin_*` - Marges internes pour les axes et labels
 /// * `x_axis`, `y_axis` - Configurations des deux axes
 /// * `*_color` - Couleurs pour le fond, les lignes, axes, grille, texte, labels
-///
-/// # Exemple
-///
-/// ```
-/// use embassy_st7789v::{Color, SCREEN_W, SCREEN_H};
-/// use embassy_st7789v_plot::{AxisConfig, PlotConfig};
-///
-/// let x_axis = AxisConfig::new(0.0, 10.0, 2.0, b"Time (s)");
-/// let y_axis = AxisConfig::new(0.0, 100.0, 20.0, b"Value");
-///
-/// let config = PlotConfig {
-///     x: 10,
-///     y: 10,
-///     width: 220,
-///     height: 200,
-///     margin_left: 40,
-///     margin_right: 10,
-///     margin_top: 10,
-///     margin_bottom: 30,
-///     x_axis,
-///     y_axis,
-///     bg_color: Color::BLACK,
-///     line_color: Color::GREEN,
-///     axis_color: Color::WHITE,
-///     grid_color: Color::from_rgb(64, 64, 64),
-///     text_color: Color::WHITE,
-///     label_color: Color::CYAN,
-/// };
-/// ```
+
 #[derive(Clone, Copy, Debug)]
 pub struct PlotConfig {
     pub x: i32,
@@ -437,40 +323,7 @@ pub struct PlotConfig {
 /// - **Historique** : Seuls les N points les plus récents sont affichés.
 /// - **Rendu** : Les données sont converties en pixels via `scale_x()` et `scale_y()`,
 ///   puis connectées par des lignes (Bresenham).
-///
-/// # Exemple
-///
-/// ```no_run
-/// # use embassy_st7789v::{Color, St7789v, NoPin};
-/// # use embedded_hal::digital::OutputPin;
-/// # use embedded_hal_async::spi::SpiDevice;
-/// use embassy_st7789v_plot::{Graphics, AxisConfig, PlotConfig, LineChart};
-///
-/// # async fn example<SPI, DC>(display: &mut St7789v<SPI, DC, NoPin>) where SPI: SpiDevice, DC: OutputPin {
-/// // Créer la config
-/// let config = PlotConfig {
-///     x: 10, y: 10, width: 220, height: 200,
-///     margin_left: 40, margin_right: 10, margin_top: 10, margin_bottom: 30,
-///     x_axis: AxisConfig::new(0.0, 10.0, 2.0, b"Time"),
-///     y_axis: AxisConfig::new(0.0, 100.0, 20.0, b"Value"),
-///     bg_color: Color::BLACK,
-///     line_color: Color::GREEN,
-///     axis_color: Color::WHITE,
-///     grid_color: Color::from_rgb(64, 64, 64),
-///     text_color: Color::WHITE,
-///     label_color: Color::CYAN,
-/// };
-///
-/// // Créer et utiliser le graphique
-/// let mut chart: LineChart<100> = LineChart::new(config);
-/// chart.push(10.5);
-/// chart.push(12.3);
-/// chart.push(11.8);
-///
-/// let mut gfx = Graphics::new_no_rst(display);
-/// chart.render(&mut gfx).await;
-/// # }
-/// ```
+``
 pub struct LineChart<const N: usize> {
     config: PlotConfig,
     data: [f32; N],
@@ -495,28 +348,7 @@ impl<const N: usize> LineChart<N> {
     /// - N > `PLOT_HISTORY_LIMIT` (240)
     /// - La configuration d'axe X est invalide
     /// - La configuration d'axe Y est invalide
-    ///
-    /// # Exemple
-    ///
-    /// ```
-    /// use embassy_st7789v::{Color};
-    /// use embassy_st7789v_plot::{AxisConfig, PlotConfig, LineChart};
-    ///
-    /// let config = PlotConfig {
-    ///     x: 10, y: 10, width: 220, height: 200,
-    ///     margin_left: 40, margin_right: 10, margin_top: 10, margin_bottom: 30,
-    ///     x_axis: AxisConfig::new(0.0, 10.0, 2.0, b"Time"),
-    ///     y_axis: AxisConfig::new(0.0, 100.0, 20.0, b"Value"),
-    ///     bg_color: Color::BLACK,
-    ///     line_color: Color::GREEN,
-    ///     axis_color: Color::WHITE,
-    ///     grid_color: Color::from_rgb(64, 64, 64),
-    ///     text_color: Color::WHITE,
-    ///     label_color: Color::CYAN,
-    /// };
-    ///
-    /// let chart: LineChart<100> = LineChart::new(config);
-    /// ```
+
     pub fn new(config: PlotConfig) -> Self {
         assert!(N <= PLOT_HISTORY_LIMIT, "L'historique dépasse la limite physique horizontale.");
         assert!(config.x_axis.is_valid(), "Configuration axe X invalide.");
@@ -552,30 +384,7 @@ impl<const N: usize> LineChart<N> {
     /// # Arguments
     ///
     /// * `value` - Valeur à ajouter (sera clampée à la plage Y-axis lors du rendu)
-    ///
-    /// # Exemple
-    ///
-    /// ```
-    /// use embassy_st7789v::{Color};
-    /// use embassy_st7789v_plot::{AxisConfig, PlotConfig, LineChart};
-    ///
-    /// let config = PlotConfig {
-    ///     x: 10, y: 10, width: 220, height: 200,
-    ///     margin_left: 40, margin_right: 10, margin_top: 10, margin_bottom: 30,
-    ///     x_axis: AxisConfig::new(0.0, 10.0, 2.0, b"Time"),
-    ///     y_axis: AxisConfig::new(0.0, 100.0, 20.0, b"Value"),
-    ///     bg_color: Color::BLACK,
-    ///     line_color: Color::GREEN,
-    ///     axis_color: Color::WHITE,
-    ///     grid_color: Color::from_rgb(64, 64, 64),
-    ///     text_color: Color::WHITE,
-    ///     label_color: Color::CYAN,
-    /// };
-    ///
-    /// let mut chart: LineChart<100> = LineChart::new(config);
-    /// chart.push(50.0);
-    /// chart.push(55.5);
-    /// ```
+
     pub fn push(&mut self, value: f32) {
         self.data[self.head] = value;
         self.head = (self.head + 1) % N;
@@ -585,30 +394,6 @@ impl<const N: usize> LineChart<N> {
     }
 
     /// Efface l'historique et réinitialise le graphique.
-    ///
-    /// # Exemple
-    ///
-    /// ```
-    /// use embassy_st7789v::{Color};
-    /// use embassy_st7789v_plot::{AxisConfig, PlotConfig, LineChart};
-    ///
-    /// let config = PlotConfig {
-    ///     x: 10, y: 10, width: 220, height: 200,
-    ///     margin_left: 40, margin_right: 10, margin_top: 10, margin_bottom: 30,
-    ///     x_axis: AxisConfig::new(0.0, 10.0, 2.0, b"Time"),
-    ///     y_axis: AxisConfig::new(0.0, 100.0, 20.0, b"Value"),
-    ///     bg_color: Color::BLACK,
-    ///     line_color: Color::GREEN,
-    ///     axis_color: Color::WHITE,
-    ///     grid_color: Color::from_rgb(64, 64, 64),
-    ///     text_color: Color::WHITE,
-    ///     label_color: Color::CYAN,
-    /// };
-    ///
-    /// let mut chart: LineChart<100> = LineChart::new(config);
-    /// chart.push(50.0);
-    /// chart.clear();
-    /// ```
     pub fn clear(&mut self) {
         self.head = 0;
         self.count = 0;
@@ -682,37 +467,7 @@ impl<const N: usize> LineChart<N> {
     ///
     /// * `gfx` - Contexte graphique initialisé
     ///
-    /// # Exemple
-    ///
-    /// ```no_run
-    /// # use embassy_st7789v::{Color, St7789v, NoPin};
-    /// # use embedded_hal::digital::OutputPin;
-    /// # use embedded_hal_async::spi::SpiDevice;
-    /// use embassy_st7789v_plot::{Graphics, AxisConfig, PlotConfig, LineChart};
-    ///
-    /// # async fn example<SPI, DC>(display: &mut St7789v<SPI, DC, NoPin>) where SPI: SpiDevice, DC: OutputPin {
-    /// let config = PlotConfig {
-    ///     x: 10, y: 10, width: 220, height: 200,
-    ///     margin_left: 40, margin_right: 10, margin_top: 10, margin_bottom: 30,
-    ///     x_axis: AxisConfig::new(0.0, 10.0, 2.0, b"Time"),
-    ///     y_axis: AxisConfig::new(0.0, 100.0, 20.0, b"Value"),
-    ///     bg_color: Color::BLACK,
-    ///     line_color: Color::GREEN,
-    ///     axis_color: Color::WHITE,
-    ///     grid_color: Color::from_rgb(64, 64, 64),
-    ///     text_color: Color::WHITE,
-    ///     label_color: Color::CYAN,
-    /// };
-    ///
-    /// let mut chart: LineChart<100> = LineChart::new(config);
-    /// for i in 0..10 {
-    ///     chart.push((i as f32) * 10.0);
-    /// }
-    ///
-    /// let mut gfx = Graphics::new_no_rst(display);
-    /// chart.render(&mut gfx).await;
-    /// # }
-    /// ```
+``
     pub async fn render<SPI, DC, RST>(&self, gfx: &mut Graphics<'_, SPI, DC, RST>)
     where
         SPI: SpiDevice,
