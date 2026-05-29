@@ -474,7 +474,7 @@ impl<const N: usize> LineChart<N> {
         let right_edge = self.plot_x + self.plot_w - 1;
         let bottom_edge = self.plot_y + self.plot_h - 1;
 
-        ///  1. TRACÉ UNIQUE DU CADRE ET DU TEXTE (Uniquement au premier passage) ──
+        //  1. TRACÉ UNIQUE DU CADRE ET DU TEXTE (Uniquement au premier passage) ──
         if !self.initialized {
             // Effacer l'intégralité de l'espace alloué au composant
             let _ = gfx.display.fill_rect(
@@ -485,7 +485,7 @@ impl<const N: usize> LineChart<N> {
                 self.config.bg_color,
             ).await;
 
-            ///Labels Y
+            //Labels Y
             let y_axis = &self.config.y_axis;
             let y_range = y_axis.end - y_axis.start;
             let tick_count_y = y_axis.tick_count();
@@ -514,7 +514,7 @@ impl<const N: usize> LineChart<N> {
                 ).await;
             }
 
-            ///Labels X
+            //Labels X
             let x_axis = &self.config.x_axis;
             let tick_count_x = x_axis.tick_count();
 
@@ -534,7 +534,7 @@ impl<const N: usize> LineChart<N> {
                 ).await;
             }
 
-            /// Titres des axes
+            // Titres des axes
             let _ = gfx.display.draw_str(
                 (self.config.x + 2) as u16,
                 (self.config.y - 16).max(0) as u16,
@@ -561,7 +561,7 @@ impl<const N: usize> LineChart<N> {
             self.initialized = true;
         }
 
-        ///  2. NETTOYAGE DYNAMIQUE DE L'INTÉRIEUR STRICT (Sans toucher aux bordures) ──
+        //  2. NETTOYAGE DYNAMIQUE DE L'INTÉRIEUR STRICT (Sans toucher aux bordures) ──
         let _ = gfx.display.fill_rect(
             (self.plot_x + 1) as u16,
             (self.plot_y + 1) as u16,
@@ -570,7 +570,7 @@ impl<const N: usize> LineChart<N> {
             self.config.bg_color,
         ).await;
 
-        /// Grille horizontale (Y) interne
+        // Grille horizontale (Y) interne
         let y_axis = &self.config.y_axis;
         let y_range = y_axis.end - y_axis.start;
         let tick_count_y = y_axis.tick_count();
@@ -579,9 +579,9 @@ impl<const N: usize> LineChart<N> {
             let ratio = (value - y_axis.start) / y_range;
             let y_grid = bottom_edge - (ratio * (self.plot_h - 1) as f32) as i32;
 
-            /// Éviter de dessiner une grille si elle se superpose aux bordures de 1 pixel
+            // Éviter de dessiner une grille si elle se superpose aux bordures de 1 pixel
             if y_grid > self.plot_y && y_grid < bottom_edge {
-                /// Si c'est la ligne du zéro, on peut optionnellement lui donner une couleur distinctive
+                // Si c'est la ligne du zéro, on peut optionnellement lui donner une couleur distinctive
                 let color = if value.abs() < 0.001 { Color::GREEN } else { self.config.grid_color };
                 
                 let _ = gfx.display.draw_hline(
@@ -593,7 +593,7 @@ impl<const N: usize> LineChart<N> {
             }
         }
 
-        /// Grille verticale (X) interne
+        // Grille verticale (X) interne
         let x_axis = &self.config.x_axis;
         let tick_count_x = x_axis.tick_count();
         for i in 1..tick_count_x - 1 {
@@ -610,7 +610,7 @@ impl<const N: usize> LineChart<N> {
             }
         }
 
-        ///  3. TRACÉ DE LA COURBE DES DONNÉES (Contrainte à l'intérieur strict) ──
+        //  3. TRACÉ DE LA COURBE DES DONNÉES (Contrainte à l'intérieur strict) ──
         if self.count < 2 {
             if self.count == 1 {
                 let px = self.scale_x(0).max(self.plot_x + 1).min(right_edge - 1);
@@ -620,7 +620,7 @@ impl<const N: usize> LineChart<N> {
             return;
         }
 
-        /// Récupération et clamping des points pour qu'ils ne bavent jamais sur la bordure blanche
+        // Récupération et clamping des points pour qu'ils ne bavent jamais sur la bordure blanche
         let mut prev_x = self.scale_x(0).max(self.plot_x + 1).min(right_edge - 1);
         let mut prev_y = self.scale_y(self.get_sample(0)).max(self.plot_y + 1).min(bottom_edge - 1);
 
