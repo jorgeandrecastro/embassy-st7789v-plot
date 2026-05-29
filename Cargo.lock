@@ -47,7 +47,7 @@ dependencies = [
 
 [[package]]
 name = "embassy-st7789v-plot"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "embassy-st7789v",
  "embassy-st7789v-graphics",

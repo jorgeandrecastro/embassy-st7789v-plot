@@ -8,20 +8,21 @@
 //!
 //! ## Caractéristiques principales
 //!
-//! - **`#![no_std]` + `#![forbid(unsafe_code)]`** : Sûr et embarqué
-//! - **Zéro allocation dynamique** : Buffers statiques uniquement (ring buffer)
-//! - **API async** : Basée sur Embassy pour ST7789V
-//! - **Axes configurables** : Graduations statiques avec labels personnalisés
-//! - **Grille adaptative** : Grille horizontale/verticale pour meilleure lisibilité
-//! - **Historique circulaire** : Jusqu'à 240 points (limité par la largeur écran)
-//! - **Protection des bordures** : Les labels de graduations restent à l'écran
+//! - **`#![no_std]` + `#![forbid(unsafe_code)]`** : Sûr et optimisé pour le bare-metal.
+//! - **Zéro allocation dynamique** : Buffers statiques uniquement (ring buffer).
+//! - **API async** : Basée sur Embassy pour des transferts SPI non bloquants.
+//! - **Rendu intelligent (Double Phase)** : Le cadre, les étiquettes et les titres sont tracés 
+//!   une seule fois à l'initialisation. Seuls la grille interne et le signal sont rafraîchis dynamiquement.
+//! - **Axes configurables** : Graduations statiques avec labels personnalisés et détection automatique / coloration du zéro.
+//! - **Historique circulaire** : Jusqu'à 240 points (limité par la largeur physique de l'écran).
+//! - **Protection stricte des bordures** : Clamping des primitives géométriques à l'espace interne utile pour éviter tout débordement sur les axes.
 //!
 //! ## Structures principales
 //!
-//! - [`Graphics`] : Contexte graphique pour les primitives de dessin
-//! - [`AxisConfig`] : Configuration d'un axe (min, max, pas de graduation, label)
-//! - [`PlotConfig`] : Configuration complète du graphique (position, marges, couleurs)
-//! - [`LineChart`] : Gestionnaire du graphique avec données historiques
+//! - [`Graphics`] : Contexte graphique pour les primitives de dessin.
+//! - [`AxisConfig`] : Configuration d'un axe (min, max, pas de graduation, label).
+//! - [`PlotConfig`] : Configuration complète du graphique (position, marges, couleurs).
+//! - [`LineChart`] : Gestionnaire du graphique avec données historiques.
 //!
 //! ## Exemple d'utilisation
 //!
@@ -38,7 +39,7 @@
 //! # {
 //! // Créer les configurations d'axes
 //! let x_axis = AxisConfig::new(0.0, 10.0, 2.0, b"Time (s)");
-//! let y_axis = AxisConfig::new(0.0, 100.0, 20.0, b"Temp (C)");
+//! let y_axis = AxisConfig::new(-50.0, 50.0, 20.0, b"Volt (mV)");
 //!
 //! // Créer la configuration complète du graphique
 //! let config = PlotConfig {
@@ -64,21 +65,15 @@
 //! let mut chart: LineChart<100> = LineChart::new(config);
 //!
 //! // Ajouter des données
-//! chart.push(45.2);
-//! chart.push(47.8);
-//! chart.push(52.1);
+//! chart.push(12.4);
+//! chart.push(-5.2);
+//! chart.push(22.1);
 //!
-//! // Afficher le graphique
+//! // Rendu asynchrone sur l'affichage (mise à jour incrémentale de la zone interne)
 //! let mut gfx = Graphics::new_no_rst(display);
 //! chart.render(&mut gfx).await;
 //! # }
 //! ```
-//!
-//! ## API asynchrone
-//!
-//! Tous les appels de rendu (`render`, `line`, `pixel`) sont asynchrones pour permettre
-//! une meilleure intégration avec l'écosystème Embassy et éviter les blocages lors
-//! de la communication SPI.
 
 use embassy_st7789v::{Color, NoPin, St7789v, SCREEN_H, SCREEN_W};
 use embedded_hal::digital::OutputPin;
@@ -323,7 +318,6 @@ pub struct PlotConfig {
 /// - **Historique** : Seuls les N points les plus récents sont affichés.
 /// - **Rendu** : Les données sont converties en pixels via `scale_x()` et `scale_y()`,
 ///   puis connectées par des lignes (Bresenham).
-``
 pub struct LineChart<const N: usize> {
     config: PlotConfig,
     data: [f32; N],
@@ -333,6 +327,7 @@ pub struct LineChart<const N: usize> {
     plot_y: i32,
     plot_w: i32,
     plot_h: i32,
+    initialized: bool, // Ajout du flag pour suivre l'état du tracé
 }
 
 impl<const N: usize> LineChart<N> {
@@ -368,6 +363,7 @@ impl<const N: usize> LineChart<N> {
             plot_y,
             plot_w,
             plot_h,
+            initialized: false, // Initialisé à false par défaut
         }
     }
 
@@ -398,6 +394,7 @@ impl<const N: usize> LineChart<N> {
         self.head = 0;
         self.count = 0;
         self.data.fill(0.0);
+        self.initialized = false; // Permet de redessiner le cadre lors du prochain render
     }
 
     #[inline]
@@ -467,139 +464,169 @@ impl<const N: usize> LineChart<N> {
     ///
     /// * `gfx` - Contexte graphique initialisé
     ///
-``
-    pub async fn render<SPI, DC, RST>(&self, gfx: &mut Graphics<'_, SPI, DC, RST>)
+
+   pub async fn render<SPI, DC, RST>(&mut self, gfx: &mut Graphics<'_, SPI, DC, RST>)
     where
         SPI: SpiDevice,
         DC: OutputPin,
         RST: OutputPin,
     {
-        // 1. Fond de la zone du graphique
-        let _ = gfx.display.fill_rect(
-            self.plot_x as u16,
-            self.plot_y as u16,
-            (self.plot_x + self.plot_w - 1) as u16,
-            (self.plot_y + self.plot_h - 1) as u16,
-            self.config.bg_color,
-        ).await;
-
         let right_edge = self.plot_x + self.plot_w - 1;
         let bottom_edge = self.plot_y + self.plot_h - 1;
 
-        // 2. Grille horizontale (Y) + Labels Y
+        ///  1. TRACÉ UNIQUE DU CADRE ET DU TEXTE (Uniquement au premier passage) ──
+        if !self.initialized {
+            // Effacer l'intégralité de l'espace alloué au composant
+            let _ = gfx.display.fill_rect(
+                self.config.x as u16,
+                (self.config.y - 16).max(0) as u16,
+                (self.config.x + self.config.width) as u16,
+                (self.config.y + self.config.height + 16).min(SCREEN_H as i32) as u16,
+                self.config.bg_color,
+            ).await;
+
+            ///Labels Y
+            let y_axis = &self.config.y_axis;
+            let y_range = y_axis.end - y_axis.start;
+            let tick_count_y = y_axis.tick_count();
+
+            for i in 0..tick_count_y {
+                let value = y_axis.start + (i as f32 * y_axis.step);
+                let ratio = (value - y_axis.start) / y_range;
+                let y_grid = bottom_edge - (ratio * (self.plot_h - 1) as f32) as i32;
+
+                // Couleur spéciale pour le vrai zéro
+                let label_color = if value.abs() < 0.001 {
+                    Color::GREEN
+                } else {
+                    self.config.text_color
+                };
+
+                let label_y = (y_grid - 4).max(self.config.y + 8).min(self.config.y + self.config.height - 8);
+
+                let _ = gfx.display.draw_f32(
+                    (self.config.x + 2) as u16,
+                    label_y as u16,
+                    value,
+                    1,
+                    label_color,
+                    self.config.bg_color,
+                ).await;
+            }
+
+            ///Labels X
+            let x_axis = &self.config.x_axis;
+            let tick_count_x = x_axis.tick_count();
+
+            for i in 0..tick_count_x {
+                let value = x_axis.start + (i as f32 * x_axis.step);
+                let x_grid = self.scale_x_value(value);
+
+                let label_x = (x_grid - 8).max(self.config.x + 2).min(self.config.x + self.config.width - 20);
+
+                let _ = gfx.display.draw_f32(
+                    label_x as u16,
+                    (bottom_edge + 4) as u16,
+                    value,
+                    1,
+                    self.config.text_color,
+                    self.config.bg_color,
+                ).await;
+            }
+
+            /// Titres des axes
+            let _ = gfx.display.draw_str(
+                (self.config.x + 2) as u16,
+                (self.config.y - 16).max(0) as u16,
+                y_axis.label,
+                self.config.label_color,
+                self.config.bg_color,
+            ).await;
+
+            let label_x_x = self.plot_x + (self.plot_w / 2) - ((x_axis.label.len() as i32 * 6) / 2);
+            let _ = gfx.display.draw_str(
+                label_x_x.max(self.config.x + 2) as u16,
+                (self.config.y + self.config.height + 4).min(SCREEN_H as i32 - 8) as u16,
+                x_axis.label,
+                self.config.label_color,
+                self.config.bg_color,
+            ).await;
+
+            // Bordures externes fixes
+            let _ = gfx.display.draw_hline(self.plot_x as u16, self.plot_y as u16, self.plot_w as u16, self.config.axis_color).await;
+            let _ = gfx.display.draw_hline(self.plot_x as u16, bottom_edge as u16, self.plot_w as u16, self.config.axis_color).await;
+            let _ = gfx.display.draw_vline(self.plot_x as u16, self.plot_y as u16, self.plot_h as u16, self.config.axis_color).await;
+            let _ = gfx.display.draw_vline(right_edge as u16, self.plot_y as u16, self.plot_h as u16, self.config.axis_color).await;
+
+            self.initialized = true;
+        }
+
+        ///  2. NETTOYAGE DYNAMIQUE DE L'INTÉRIEUR STRICT (Sans toucher aux bordures) ──
+        let _ = gfx.display.fill_rect(
+            (self.plot_x + 1) as u16,
+            (self.plot_y + 1) as u16,
+            (right_edge - 1) as u16,
+            (bottom_edge - 1) as u16,
+            self.config.bg_color,
+        ).await;
+
+        /// Grille horizontale (Y) interne
         let y_axis = &self.config.y_axis;
         let y_range = y_axis.end - y_axis.start;
         let tick_count_y = y_axis.tick_count();
-
-        for i in 0..tick_count_y {
+        for i in 1..tick_count_y - 1 {
             let value = y_axis.start + (i as f32 * y_axis.step);
             let ratio = (value - y_axis.start) / y_range;
             let y_grid = bottom_edge - (ratio * (self.plot_h - 1) as f32) as i32;
 
-            // Ligne de grille (sauf sur les bordures)
-            if i > 0 && i < tick_count_y - 1 {
+            /// Éviter de dessiner une grille si elle se superpose aux bordures de 1 pixel
+            if y_grid > self.plot_y && y_grid < bottom_edge {
+                /// Si c'est la ligne du zéro, on peut optionnellement lui donner une couleur distinctive
+                let color = if value.abs() < 0.001 { Color::GREEN } else { self.config.grid_color };
+                
                 let _ = gfx.display.draw_hline(
-                    self.plot_x as u16, 
+                    (self.plot_x + 1) as u16, 
                     y_grid as u16, 
-                    self.plot_w as u16, 
-                    self.config.grid_color
+                    (self.plot_w - 2) as u16, 
+                    color
                 ).await;
             }
-
-            // Label Y dans la marge gauche (avec padding pour éviter la coupure)
-            let label_color = if value.abs() < 0.01 * y_axis.step {
-                Color::GREEN  // Met en évidence la valeur zéro
-            } else {
-                self.config.text_color
-            };
-
-            let label_y = (y_grid - 4).max(self.config.y + 8).min(self.config.y + self.config.height - 8);
-
-            let _ = gfx.display.draw_f32(
-                (self.config.x + 2) as u16,
-                label_y as u16,
-                value,
-                1,
-                label_color,
-                self.config.bg_color,
-            ).await;
         }
 
-        // 3. Grille verticale (X) + Labels X
+        /// Grille verticale (X) interne
         let x_axis = &self.config.x_axis;
-        
         let tick_count_x = x_axis.tick_count();
-
-        for i in 0..tick_count_x {
+        for i in 1..tick_count_x - 1 {
             let value = x_axis.start + (i as f32 * x_axis.step);
             let x_grid = self.scale_x_value(value);
 
-            // Ligne de grille (sauf sur les bordures)
-            if i > 0 && i < tick_count_x - 1 {
+            if x_grid > self.plot_x && x_grid < right_edge {
                 let _ = gfx.display.draw_vline(
                     x_grid as u16,
-                    self.plot_y as u16,
-                    self.plot_h as u16,
+                    (self.plot_y + 1) as u16,
+                    (self.plot_h - 2) as u16,
                     self.config.grid_color
                 ).await;
             }
-
-            // Label X dans la marge inférieure (avec padding pour éviter la coupure)
-            let label_x = (x_grid - 8).max(self.config.x + 2).min(self.config.x + self.config.width - 20);
-
-            let _ = gfx.display.draw_f32(
-                label_x as u16,
-                (bottom_edge + 4) as u16,
-                value,
-                1,
-                self.config.text_color,
-                self.config.bg_color,
-            ).await;
         }
 
-        // 4. Labels des axes (titres) — draw_str prend &[u8] et 5 arguments
-        // Label Y (coin haut-gauche de la marge, 2 lignes plus haut)
-        let _ = gfx.display.draw_str(
-            (self.config.x + 2) as u16,
-            (self.config.y - 16).max(0) as u16,
-            y_axis.label,
-            self.config.label_color,
-            self.config.bg_color,
-        ).await;
-
-        // Label X (dans la marge bas, 2 lignes plus bas)
-        let label_x_x = self.plot_x + (self.plot_w / 2) - ((x_axis.label.len() as i32 * 6) / 2);
-        let _ = gfx.display.draw_str(
-            label_x_x.max(self.config.x + 2) as u16,
-            //Le label X est placé dans la marge inférieure, avec un padding de 4 pixels pour éviter la coupure
-            (self.config.y + self.config.height + 4).min(SCREEN_H as i32 - 8) as u16, 
-            x_axis.label,
-            self.config.label_color,
-            self.config.bg_color,
-        ).await;
-
-        // 5. Bordures externes
-        let _ = gfx.display.draw_hline(self.plot_x as u16, self.plot_y as u16, self.plot_w as u16, self.config.axis_color).await;
-        let _ = gfx.display.draw_hline(self.plot_x as u16, bottom_edge as u16, self.plot_w as u16, self.config.axis_color).await;
-        let _ = gfx.display.draw_vline(self.plot_x as u16, self.plot_y as u16, self.plot_h as u16, self.config.axis_color).await;
-        let _ = gfx.display.draw_vline(right_edge as u16, self.plot_y as u16, self.plot_h as u16, self.config.axis_color).await;
-
-        // 6. Tracé des données
+        ///  3. TRACÉ DE LA COURBE DES DONNÉES (Contrainte à l'intérieur strict) ──
         if self.count < 2 {
             if self.count == 1 {
-                let px = self.scale_x(0);
-                let py = self.scale_y(self.get_sample(0));
+                let px = self.scale_x(0).max(self.plot_x + 1).min(right_edge - 1);
+                let py = self.scale_y(self.get_sample(0)).max(self.plot_y + 1).min(bottom_edge - 1);
                 gfx.pixel(px, py, self.config.line_color).await;
             }
             return;
         }
 
-        let mut prev_x = self.scale_x(0);
-        let mut prev_y = self.scale_y(self.get_sample(0));
+        /// Récupération et clamping des points pour qu'ils ne bavent jamais sur la bordure blanche
+        let mut prev_x = self.scale_x(0).max(self.plot_x + 1).min(right_edge - 1);
+        let mut prev_y = self.scale_y(self.get_sample(0)).max(self.plot_y + 1).min(bottom_edge - 1);
 
         for i in 1..self.count {
-            let next_x = self.scale_x(i);
-            let next_y = self.scale_y(self.get_sample(i));
+            let next_x = self.scale_x(i).max(self.plot_x + 1).min(right_edge - 1);
+            let next_y = self.scale_y(self.get_sample(i)).max(self.plot_y + 1).min(bottom_edge - 1);
 
             line(gfx, prev_x, prev_y, next_x, next_y, self.config.line_color).await;
 

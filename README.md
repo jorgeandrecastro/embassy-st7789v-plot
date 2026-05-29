@@ -5,17 +5,17 @@ Moteur de tracé de graphiques cartésiens (X, Y) adaptatifs et configurables po
 ## 🎯 Caractéristiques
 
 - ✅ **`#![no_std]` + `#![forbid(unsafe_code)]`** : Entièrement sûr et embarqué
-- ✅ **Zéro allocation heap** : Buffers statiques uniquement (ring buffer fixe)
-- ✅ **Ring buffer circulaire** : Jusqu'à 240 points (limite physique écran 240px)
+- ✅ **Zéro allocation dynamique** : Buffers statiques uniquement (ring buffer fixe)
+- ✅ **Historique circulaire** : Jusqu'à 240 points (limite physique écran 240px)
 - ✅ **Axes configurables** : Graduations statiques avec pas personnalisable
-- ✅ **Grille adaptative** : Grille horizontale/verticale avec labels
+- ✅ **Grille configurable** : Grille horizontale/verticale avec labels personnalisés
 - ✅ **API asynchrone** : Intégration complète Embassy pour non-bloquant
-- ✅ **Protection des bordures** : Labels de graduations restent toujours visibles
+- ✅ **Détection automatique du zéro** : La ligne zéro est surlignée en vert quand elle traverse la grille
+- ✅ **Protection stricte des bordures** : Clamping des primitives géométriques à l'espace interne utile
 - ✅ **Rendu ligne Bresenham** : Courbes lisses entre points de données
-
+- ✅ **Rendu intelligent (Double Phase)** : Le cadre, les étiquettes et les titres ne sont tracés qu'une seule fois à l'initialisation. Seuls la grille interne et le signal sont rafraîchis dynamiquement.
 
 -----
-
 
 ## Changelog
 
@@ -27,7 +27,7 @@ Voir [CHANGELOG.md](./CHANGELOG.md) pour l'historique des versions et modificati
 
 ```toml
 [dependencies]
-embassy-st7789v-plot = "0.1.1"
+embassy-st7789v-plot = "0.2.0"
 embassy-st7789v = "0.1"
 embedded-hal = "1.0"
 embedded-hal-async = "1.0"
@@ -121,22 +121,21 @@ assert!(!invalid.is_valid());  // end <= start
 │ ┌──────────────────────────┐    │
 │ │  Label Y (amplitude)     │    │ margin_top
 │ │  ┌────────────────────┐  │    │
-│ │  │  100  ┼─────────┐  │  │    │
-│ │  │   80  │  •     │  │  │    │
-│ │  │   60  │    •   │  │  │    │
-│ │  │   40  │      •–┤  │  │    │
-│ │  │   20  │        │  │  │    │
-│ │  │    0  └────────┘  │  │    │
-│ │  │       0  2  4  6  8 10    │ margin_bottom
-│ │  │       Time (s)            │
-│ │  └────────────────────────   │
+│ │  │  100  ┼────────┐   │  │    │
+│ │  │   80  │  •     │   │  │    │
+│ │  │   60  │    •   │   │  │    │
+│ │  │   40  │      •–┤   │  │    │
+│ │  │   20  │        │   │  │    │
+│ │  │    0  └────────┘   │  │    │
+│ │  │       0  2  4  6  8 10     │ margin_bottom
+│ │  │       Time (s)             │
+│ │  └────────────────────────    │
 │ └──────────────────────────────┘
   ↑                              ↑
 margin_left              margin_right
 ```
 
 ----
-
 
 ## 📊 Structure de données
 
@@ -154,17 +153,22 @@ data[4] = valeur 2e
 ...
 ```
 
-### Workflow de rendu
+### Workflow de rendu (Double Phase)
 
-1. **Fond** → Rectangle de fond couleur (bg_color)
-2. **Grille Y** → Lignes horizontales + labels Y
-3. **Grille X** → Lignes verticales + labels X
-4. **Labels des axes** → Texte des titres
-5. **Bordures** → Cadre (axis_color)
-6. **Courbe** → Lignes Bresenham reliant les points
+**Phase d'initialisation (une seule fois):**
+1. **Nettoyage global** → Effacement de l'espace d'affichage
+2. **Labels Y** → Texte des graduations Y (vert si zéro détecté)
+3. **Labels X** → Texte des graduations X
+4. **Titres des axes** → Labels des axes X et Y
+5. **Bordures fixes** → Cadre (axis_color)
+
+**Phase dynamique (à chaque rendu):**
+1. **Nettoyage interne** → Effacement strict de l'intérieur (sans toucher aux bordures)
+2. **Grille Y** → Lignes horizontales (vert pour le zéro, couleur grille sinon)
+3. **Grille X** → Lignes verticales
+4. **Courbe** → Lignes Bresenham reliant les points de données
 
 ----
-
 
 ## 🔧 Cas d'usage
 
@@ -209,6 +213,7 @@ let config = PlotConfig {
 };
 let mut pressure_chart: LineChart<100> = LineChart::new(config);
 ```
+
 ----
 
 ## 🛠️ API complète
@@ -245,15 +250,14 @@ let mut pressure_chart: LineChart<100> = LineChart::new(config);
 |----------|-------------|
 | `line(gfx, x0, y0, x1, y1, color)` | Trace ligne Bresenham (async) |
 
-
 ----
 
 ## ⚠️ Limitations
 
 - **Nombre de points** : Maximum 240 (largeur écran ST7789V)
 - **Précision** : Axes en virgule flottante, pixel en entier
-- **Pas adaptatif** : Les graduations sont statiques (pas de zoom automatique)
-- **Labels** : Seulement texte ASCII sur Y-axis, valeurs flottantes sur graduations
+- **Pas non-adaptatif** : Les graduations sont statiques (pas de zoom ou rescaling automatique)
+- **Labels** : Texte ASCII personnalisable pour les axes, valeurs flottantes pour les graduations
 
 ----
 
@@ -283,7 +287,7 @@ async fn main(_spawner: Spawner) {
 
 ---
 
-## �📜 License
+## 📜 License
 
 GPL-2.0-or-later 
 
@@ -296,4 +300,3 @@ GPL-2.0-or-later
 - [`embassy-st7789v`](https://crates.io/crates/embassy-st7789v) — Driver ST7789V
 - [`embedded-hal`](https://crates.io/crates/embedded-hal) — Traits HAL
 - [`embedded-hal-async`](https://crates.io/crates/embedded-hal-async) — Traits async HAL
-

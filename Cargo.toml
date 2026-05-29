@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "embassy-st7789v-plot"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Jorge Andre Castro <georgeandrec@gmail.com>"]
 build = false
 autolib = false
@@ -9,7 +9,7 @@ autobins = false
 autoexamples = false
 autotests = false
 autobenches = false
-description = "Moteur de tracé de graphiques cartésiens (X, Y) adaptatifs et configurables pour écrans ST7789V,ring buffer, axes statiques, grille, zéro allocation"
+description = "Moteur de tracé cartésien (X,Y) asynchrone pour ST7789V. Sans allocation, ring buffer fixe, grille et rendu double phase no_std."
 documentation = "https://docs.rs/embassy-st7789v-plot"
 readme = "README.md"
 keywords = [
